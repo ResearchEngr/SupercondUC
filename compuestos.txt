@@ -1,0 +1,47 @@
+# Este archivo comprende una biblioteca de materiales que permite al usuario añadir nuevos compuestos o editar
+# información existente. Cada línea del archivo corresponde a un material diferente y el orden en el cual se
+# definen sus parámetros es como sigue:
+#
+# - Fórmula química (material):
+#	En este campo se escribe la fórmula química del compuesto.
+# 
+# - Número de bandas (nBandas):
+#	Un número entero mayor que cero. Indica la cantidad de bandas a considerar para el material.
+# 
+# - Temperatura(s) crítica(s) (Tc, Tc_1, Tc_2, ..., Tc_nBandas) [K]:
+#	La temperatura crítica o de transición (en Kelvins), del material seguida por los valores de las
+#	temperaturas críticas o de transición (en Kelvins), para cada banda (si nBandas es mayor que uno).
+#	Si el sistema es de una sola banda, se puede omitir el uso de los paréntesis.
+#
+# - Longitud(es) de penetración (lambda0_1, lambda0_2, ..., lambda0_nBandas) [nm]:
+#	La(s) longitud(es) de penetración de Ginzburg-Landau (en nanómetros) del material Si el sistema es
+#	de una sola banda, se puede omitir el uso de los paréntesis.
+#
+# - Longitud(es) de coherencia(s) (xi0_1, xi0_2, ..., xi0_nBandas) [nm]:
+#	La(s) longitud(es) de coherencia(s) de Ginzburg-Landau (en nanómetros) del material. Si el sistema es
+#	de una sola banda, se puede omitir el uso de los paréntesis.
+#
+# - Masa(s) efectiva(s) (mi_1, mi_2, ..., mi_nBandas) [kg]:
+#	Si el sistema es de una sola banda, se puede omitir el uso de los paréntesis.
+#
+# - Campo(s) crítico(s) (Hc_1, Hc_2, ..., Hc_nBandas) [T]:
+#	Si el sistema es de una sola banda, se puede omitir el uso de los paréntesis.
+#
+# - Velocidad(es) de Fermi (Vf_1, Vf_2, ..., Vf_nBandas) [m/s]:
+#	Si el sistema es de una sola banda, se puede omitir el uso de los paréntesis.
+#
+# - Coeficiente de acoplamiento (gamma_a) [¿...?]:
+#
+# Para añadir comentarios a este archivo, por favor emplee el caracter '#' (sin comillas). Las líneas que em-
+# piecen con dicho caracter serán ignoradas.
+
+# Compuesto de prueba.
+Prueba 5 (39, 3.9, 38, 45, 83, 28) (25, 30, 28, 20, 34) (51, 8, 20, 10, 15) (1, 2, 3, 4, 5) (1e-10, 1e-8, 1e-9, 2e-10, 2e-9) (123456789, 234567890, 109876543, 210987654, 12345678) .001
+MgB2 2 (39, 3.9, 38) (25, 30) (51, 8) (1, 2) (1e-10, 1e-8) (123456789, 234567890) .22
+V3Si 2 (16.5, 8.1, 16.4) (1, 2) (3, 4) (1, 2) (1e-10, 1e-8) (123456789, 234567890) .03
+OsB2 2 (2.1, 1.2, 2.1) (1, 2) (3, 4) (1, 2) (1e-10, 1e-8) (123456789, 234567890) .074
+LiFeAs 2 (18, 6.7, 17.7) (1, 2) (3, 4) (1, 2) (1e-10, 1e-8) (123456789, 234567890) .15
+FeSe1-x 2 (8.3, 3.1, 8.3) (1, 2) (3, 4) (1, 2) (1e-10, 1e-8) (123456789, 234567890) .18
+Prueba 3 (39, 3.9, 38, 45) (25, 30, 28) (51, 8, 20) (1, 2, 3) (1e-10, 1e-8, 1e-9) (123456789, 234567890, 109876543) .5
+Prueba 1 49 5 8 1 1e-10 123456789 .2093
+PruebaPruebaPruebaPruebaPruebaPruebaPruebaPruebaPrueba 1 49 5 8 1 1e-10 123456789 .2093

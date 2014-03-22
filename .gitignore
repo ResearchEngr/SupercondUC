@@ -16,3 +16,12 @@
 *.exe
 *.out
 *.app
+
+
+# Project folders & files
+bin/
+doxygen/
+obj/
+*.cbp
+*.depend
+*.layout
