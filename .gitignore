@@ -1,3 +1,11 @@
+# Code::Blocks project folders & files (customized)
+bin/
+doxygen/
+obj/
+*.cbp
+*.depend
+*.layout
+
 # Object files
 *.o
 *.ko
@@ -16,12 +24,3 @@
 *.exe
 *.out
 *.app
-
-
-# Project folders & files
-bin/
-doxygen/
-obj/
-*.cbp
-*.depend
-*.layout
