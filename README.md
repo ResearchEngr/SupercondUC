@@ -1,19 +1,11 @@
 SupercondUC
 ===========
 
-Descripción:
+Description:
 ------------
-Cálculo de las soluciones numéricas de las ecuaciones de Ginzburg-Landau en un superconductor de dos bandas con interacciones invariantes de cuarto orden.
+Numerical solution of Ginzburg-Landau equations in 2-Band superconductors with fourth-order symmetric interactions
 
-Autores:
+Authors:
 --------
-Luis Vásquez, 	correo-e: luisvasq@hotmail.com.
-Ámbar Ippolito, correo-e: amipitga@gmail.com.
-
-Comentarios:
-------------
-Los archivos SupercondUC{.cpb,.depend,.layout} están vinculados al entorno de desarrollo Code::Blocks 13.12.
-
-Última revisión:
-----------------
-Febrero, 2015.
+Luis Vásquez-Peña, email: luisvasq@hotmail.com.
+Ámbar Ippolito,    email: amipitga@gmail.com.
