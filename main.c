@@ -14,38 +14,38 @@
 
 int main(int argc, char **argv)
 {
-    double temp_c, temp_c1, temp_c2, temp, temp_ajuste, ctetemp_c1, ctetemp_c2, cte_temp, gamma_a, r_infty, h, h_bar, *f1, *f2, *a, *B, *df1, *df2, f1oo, f2oo, x0, x, df10, df20, coef[9], cf[3], alpha, beta, m, gamma, tildegamma, kappa_1, w, k, q0, lambda_eff, lambda, lh1, lh2, la, lh_mayor, lh_mayor_ant = 0, factor_lh, factor_r, approx_err = .1, *lambda_eff_var, *lambda_var, *lh1_var, *lh2_var, *la_var, *f1oo_var, *f2oo_var, *df10_var, *df20_var, *B0_var, *gamma_var, *otra_var, max_err, aux, temp0, tildegamma0;
-    int i, j, n_bar, n_val, ni;
-    short s, o_tit, o_calc, o_graf, o_res, escala, ajuste, n_res, max_iter = 100;
-    unsigned short n, decimales, *cod_err, n_err, prctje, prctje_ant = 0;
-    char *material, *nom_arch, **nom_arch_aux, *sufijo, **id_arch, *dir, *dir_prefix, form_arch[4], char_coment, ext[3], *nom_soft_graf, *usuario, *var_ind, *valor, **formato, *ident, *ident_dup, *ident_dup0, **msj_err;
-    size_t tam_sol;
-    bool *es_invalido;
+    double temp_c, temp_c1, temp_c2, temp, temp_tune, const_temp_c1, const_temp_c2, const_temp, gamma_a, r_infty, h, h_iter, *f1, *f2, *a, *B, *df1, *df2, f1_infty, f2_infty, x0, x, df10, df20, coef[9], cf[3], alpha, beta, m, gamma, tildegamma, kappa_1, w, k, q0, lambda_eff, lambda, lh1, lh2, la, lh_mayor, lh_mayor_ant = 0, factor_lh, factor_r, approx_err = .1, *lambda_eff_var, *lambda_var, *lh1_var, *lh2_var, *la_var, *f1_infty_var, *f2_infty_var, *df10_var, *df20_var, *B0_var, *gamma_var, *another_param, max_err, aux, temp0, tildegamma0;
+    int i, j, n_iter, n_val, ni;
+    short s, show_title, calc_opt, plot_soft_open, resolution_opt, scale, temp0_fix, num_of_results, max_iter = 100;
+    unsigned short n,  dec_digits, *err_code, num_of_errors, pct, pct_ant = 0;
+    char *material, *file_name, **file_name_aux, *sufix, **id_file, *dir, *dir_prefix, plot_file_format[4], char_com, ext[3], *plot_soft_name, *usuario, *var_ind, *valor, **formato, *ident, *ident_dup, *ident_dup0, **err_msg;
+    size_t solution_size;
+    bool *is_invalid;
     struct stat st = {0};
     superconductor* sc;
-    info_grafico *info_gr;
-    FILE **archivo;
+    plot_info *p_info;
+    FILE **file;
 
     switch(argc)
     {
         {
-        /* Inicio de bloque. Interpretación de comandos. */
+        /* Block start - Command Interpreter */
         case 1:
 
-            error(5, "debe especificar los argumentos de entrada");
+            display_err_msg(5, "debe especificar los argumentos de entrada");
             break;
 
         default:
 
 #ifdef __linux__
-usuario = getenv("USER");
+            usuario = getenv("USER");
 #elif _WIN32
-usuario = malloc(UNLEN + 1);
-DWORD usuario_len = UNLEN + 1;
-GetUserName(usuario, &usuario_len);
+            usuario = malloc(UNLEN + 1);
+            DWORD usuario_len = UNLEN + 1;
+            GetUserName(usuario, &usuario_len);
 #endif
 
-            /* Valores predeterminados de los argumentos de entrada. */
+            /* Setting default values for entry arguments */
             temp = 0;
             tildegamma = .0;
             kappa_1 = 1/sqrt(2);
@@ -53,82 +53,77 @@ GetUserName(usuario, &usuario_len);
             factor_r = 5;
             factor_lh = .95;
             ni = 750;
-            o_calc = 0;
-            o_tit = 1;
-            n_bar = 750;
-            decimales = 10;
+            calc_opt = 0;
+            show_title = 1;
+            n_iter = 750;
+            dec_digits = 10;
             strcpy(ext, "dat");
-            o_graf = 3;
-            o_res = 0;
-            escala = 0;
-            ajuste = 0;
-            strcpy(form_arch, "png");
+            plot_soft_open = 3;
+            resolution_opt = 0;
+            scale = 0;
+            temp0_fix = 0;
+            strcpy(plot_file_format, "png");
 
-            cod_err = malloc((argc - 1)*sizeof*cod_err);
-            msj_err = malloc((argc - 1)*sizeof msj_err);
+            err_code = malloc((argc - 1)*sizeof*err_code);
+            err_msg = malloc((argc - 1)*sizeof err_msg);
             ident = malloc(argc - 1);
 
-            /* Verificación de la sintaxis y validación de los argumentos introducidos por el usuario.
-             * Inicializa la cadena de caracteres "ident" en un valor nulo. De lo contrario, la cadena
-             * contendrá basura y generará errores.
+            /* Syntax checking and validation for parameters entered by user.
+             * The string "ident" is set to null, otherwise the string will contain
+             * 'garbage' data, causing bugs.
              */
             strncpy(ident, "", argc);
             ident_dup = malloc(argc - 1);
             ident_dup0 = ident_dup;
-            n_err = 0;
+            num_of_errors = 0;
 
             for(i = 1; i < argc; i++)
             {
                 /*
-                 * Se verifica que el primer caracter sea un identificador válido.
-                 * m : material.
-                 * T : temperatura.
-                 * g : valor de $\tilde\gamma$.
-                 * k : valor de $\kappa_1$.
-                 * n : vorticidad.
-                 * r : factor de $r_\infty$.
-                 * l : factor de $L_h$.
-                 * N : cantidad de puntos (diferencias finitas).
-                 * o : opción de cálculo (ninguno -> 0, temperatura -> 1, $\gamma_a$ -> 2, $\tilde\gamma$ -> 3).
-                 * P : cantidad de puntos (barridos de T, $\gamma$ o $\gamma_a$).
-                 * d : cantidad de decimales.
-                 * i : formato de los archivos imagen de salida.
-                 * f : formato de archivo del software de representación gráfica.
-                 * G : especifica si se deja abierta la aplicación de representación gráfica.
-                 * R : opción de resolución (800x600 -> 0, 1024x768 -> 1, 1920x1080 -> 2, 2560x2048 -> 3).
-                 * t : especifica si se coloca título o no al gráfico.
-                 * e : especifica si $T$ se escala a $T_c$.
-                 * a : especifica si se ajusta la temperatura inicial en un barrido de $T$.
+                 * First character is checked to be a valid identifier
+                 * m : material
+                 * T : temperature
+                 * g : value of $\tilde\gamma$
+                 * k : value of $\kappa_1$
+                 * n : vorticity
+                 * r : multiple of $r_\infty$.
+                 * l : multiple of $L_h$.
+                 * N : number of points (finite difference method).
+                 * o : calculation option (GL solution -> 0, temperature variation -> 1, $\tilde\gamma$ variation -> 2).
+                 * P : number of points (temperature or $\tilde\gamma$ variation)
+                 * d : number of decimal digits
+                 * i : output image file format
+                 * f : plotting software file format
+                 * G : specifies whether the plot software process remains after getting the results
+                 * R : resolution option (800x600 -> 0, 1024x768 -> 1, 1920x1080 -> 2, 2560x2048 -> 3).
+                 * t : specifies whether a title is shown at top of the graphs.
+                 * e : specifies whether $T$ is scaled to $T_c$.
+                 * a : specifies whether initial temperature is adjusted to the first valid solution.
                  */
 
                 if (strchr("mTgknrlNoPdifGRtea", *argv[i]) == NULL)
                 {
-                    /* Verifica que el caracter inválido no haya aparecido, para no repetir el mensaje de error. */
+                    /* Checking whether an invalid character is repeated, in order to not displaying the same error message */
                     if (strchr(ident, *argv[i]) == NULL)
                     {
-                        cod_err[n_err] = 1;
-                        msj_err[n_err] = argv[i];
-                        n_err++;
+                        err_code[num_of_errors] = 1;
+                        err_msg[num_of_errors++] = argv[i];
                     }
                     ident[i - 1] = *argv[i];
-                    /* Avanza a la siguiente iteración para no mostrar ningún otro mensaje de error relativo a un
-                     * identificador inválido.
-                     */
+                    /* Move to next iteration so it will not show any other error message related to an invalid identifier */
                     continue;
                 }
-                /* Se verifica que el segundo caracter sea el signo igual. */
+                /* Checking whether the second character (after an identifier) is the equal "=" symbol */
                 if (*(argv[i] + 1) != '=')
                 {
-                    cod_err[n_err] = 2;
-                    msj_err[n_err] = argv[i];
-                    n_err++;
+                    err_code[num_of_errors] = 2;
+                    err_msg[num_of_errors++] = argv[i];
                 }
-                /* Se verifica que no existan identificadores duplicados. */
+                /* It is verified that there are no duplicate identifiers */
                 if ((strchr(ident, *argv[i]) != NULL) && (strchr(ident_dup0, *argv[i]) == NULL))
                 {
-                    cod_err[n_err] = 3;
-                    msj_err[n_err] = argv[i];
-                    n_err++;
+                    err_code[num_of_errors] = 3;
+                    err_msg[num_of_errors++] = argv[i];
                     *ident_dup++ = *argv[i];
                 }
 
@@ -150,11 +145,11 @@ GetUserName(usuario, &usuario_len);
                     break;
 
                 case 't':
-                    o_tit = atoi(valor);
-                    if ((o_tit < 0) || (o_tit > 1))
+                    show_title = atoi(valor);
+                    if ((show_title < 0) || (show_title > 1))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "la opción de título `t' solo puede ser 0 o 1";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "la opción de título `t' solo puede ser 0 o 1";
                     }
                     break;
 
@@ -166,8 +161,8 @@ GetUserName(usuario, &usuario_len);
                     n = atoi(valor);
                     if ((n < 1) || (n > 2))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "la vorticidad `n' solo puede ser 1 o 2";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "la vorticidad `n' solo puede ser 1 o 2";
                     }
                     break;
 
@@ -175,8 +170,8 @@ GetUserName(usuario, &usuario_len);
                     factor_r = atof(valor);
                     if ((factor_r < 4) || (factor_r > 100))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "el factor `r' de la frontera truncada debe ser un número real positivo: 4 <= r <= 100";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "el factor `r' de la frontera truncada debe ser un número real positivo: 4 <= r <= 100";
                     }
                     break;
 
@@ -184,8 +179,8 @@ GetUserName(usuario, &usuario_len);
                     factor_lh = atof(valor);
                     if ((factor_lh < .5) || (factor_lh > 1))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "el factor `l' de los parámetros de orden en el \"bulk\" debe ser un número real positivo: 1/2 <= l <= 1";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "el factor `l' de los parámetros de orden en el \"bulk\" debe ser un número real positivo: 1/2 <= l <= 1";
                     }
                     break;
 
@@ -193,90 +188,90 @@ GetUserName(usuario, &usuario_len);
                     ni = atoi(valor);
                     if ((ni < 10) || (ni > 1e4))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "la cantidad de puntos debe ser un número entero positivo: 10 <= N <= 10000";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "la cantidad de puntos debe ser un número entero positivo: 10 <= N <= 10000";
                     }
                     break;
 
                 case 'o':
-                    o_calc = atoi(valor);
-                    if ((o_calc < 0) || (o_calc > 2))
+                    calc_opt = atoi(valor);
+                    if ((calc_opt < 0) || (calc_opt > 2))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "la opción de cálculo `o' solo puede ser 0, 1 o 2";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "la opción de cálculo `o' solo puede ser 0, 1 o 2";
                     }
                     break;
 
                 case 'P':
-                    n_bar = atoi(valor);
-                    if ((n_bar < 10) || (n_bar > 1e4))
+                    n_iter = atoi(valor);
+                    if ((n_iter < 10) || (n_iter > 1e4))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "la cantidad de puntos debe ser un número entero positivo: 10 <= P <= 10000";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "la cantidad de puntos debe ser un número entero positivo: 10 <= P <= 10000";
                     }
                     break;
 
                 case 'd':
-                    decimales = atoi(valor);
+                    dec_digits = atoi(valor);
 
-                    if ((decimales < 4) || (decimales > 15))
+                    if (( dec_digits < 4) || ( dec_digits > 15))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "la cantidad de decimales `d' debe ser un número entero positivo: 4 <= d <= 15";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "la cantidad de decimales `d' debe ser un número entero positivo: 4 <= d <= 15";
                     }
                     break;
 
                 case 'i':
                     if ((strcmp(valor, "png") != 0) && (strcmp(valor, "eps") != 0))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "debe indicar un formato de imagen correspondiente a alguna de las dos extensiones admitidas para la salida gráfica (``png'' o ``eps'')";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "debe indicar un formato de imagen correspondiente a alguna de las dos extensiones admitidas para la salida gráfica (``png'' o ``eps'')";
                     }
-                    strcpy(form_arch, valor);
+                    strcpy(plot_file_format, valor);
                     break;
 
                 case 'f':
                     if ((strcmp(valor, "dat") != 0) && (strcmp(valor, "txt") != 0))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "Valor fuera de rango: debe indicar un formato de archivo correspondiente a algunos de las dos extensiones admitidas (``dat'' o ``txt''). Si no desea graficar la solución, por favor emplee la extensión ``txt''";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "Valor fuera de rango: debe indicar un formato de archivo correspondiente a algunos de las dos extensiones admitidas (``dat'' o ``txt''). Si no desea graficar la solución, por favor emplee la extensión ``txt''";
                     }
                     strcpy(ext, valor);
                     break;
 
                 case 'G':
-                    o_graf = atoi(valor);
-                    if ((o_graf < 0) || (o_graf > 1))
+                    plot_soft_open = atoi(valor);
+                    if ((plot_soft_open < 0) || (plot_soft_open > 1))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "la selección de salida gráfica `G' solo puede ser 0 o 1";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "la selección de salida gráfica `G' solo puede ser 0 o 1";
                     }
                     break;
 
                 case 'R':
-                    o_res = atoi(valor);
-                    if ((o_res < 0) || (o_res > 3))
+                    resolution_opt = atoi(valor);
+                    if ((resolution_opt < 0) || (resolution_opt > 3))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "la opción de resolución de salida gráfica `R' solo puede ser 0, 1, 2 o 3";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "la opción de resolución de salida gráfica `R' solo puede ser 0, 1, 2 o 3";
                     }
                     break;
 
                 case 'e':
-                    escala = atoi(valor);
-                    if ((escala < 0) || (escala > 1))
+                    scale = atoi(valor);
+                    if ((scale < 0) || (scale > 1))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "la escala `e' solo puede ser 0 o 1";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "la escala `e' solo puede ser 0 o 1";
                     }
                     break;
 
                 case 'a':
-                    ajuste = atoi(valor);
-                    if ((ajuste < 0) || (ajuste > 1))
+                    temp0_fix = atoi(valor);
+                    if ((temp0_fix < 0) || (temp0_fix > 1))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "el reajuste `a' solo puede ser 0 o 1";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "el reajuste `a' solo puede ser 0 o 1";
                     }
                     break;
 
@@ -286,105 +281,105 @@ GetUserName(usuario, &usuario_len);
                 ident[i - 1] = *argv[i];
             }
 
-            if ((o_calc < 1) && (strchr(ident, 'P') != NULL))
+            if ((calc_opt < 1) && (strchr(ident, 'P') != NULL))
             {
-                cod_err[n_err] = 5;
-                msj_err[n_err++] = "el argumento `P' se emplea solo en las opciones de barridos";
+                err_code[num_of_errors] = 5;
+                err_msg[num_of_errors++] = "el argumento `P' se emplea solo en las opciones de barridos";
             }
             if (strchr(ident, 'T') == NULL)
             {
-                cod_err[n_err] = 7;
-                msj_err[n_err++] = "El argumento temperatura no es opcional. Debe especificar el valor de la temperatura a través del identificador `T'";
+                err_code[num_of_errors] = 7;
+                err_msg[num_of_errors++] = "El argumento temperatura no es opcional. Debe especificar el valor de la temperatura a través del identificador `T'";
             }
 
-            /* Verifica que el usuario haya introducido el argumento material. */
+            /* Check whether material has been entered */
             if (strchr(ident, 'm') != NULL)
             {
                 /** Get superconductor parameters. */
-                sc = obtener_parametros(material);
+                sc = get_sc_parameters(material);
 
                 if (sc == NULL)
                 {
-                    cod_err[n_err] = 0;
-                    msj_err[n_err++] = material;
+                    err_code[num_of_errors] = 0;
+                    err_msg[num_of_errors++] = material;
                 }
                 else
-                    /* Validación de la temperatura. */
-                    if ((temp < 0) || (temp > *sc->temp_c) || (escala*temp > 1))
+                    /* Temperature validation. */
+                    if ((temp < 0) || (temp > *sc->temp_c) || (scale*temp > 1))
                     {
-                        cod_err[n_err] = 4;
-                        msj_err[n_err++] = "la temperatura debe ser un número real positivo o cero y no mayor a la temperatura crítica del material: 0 <= T/T_c <= 1";
+                        err_code[num_of_errors] = 4;
+                        err_msg[num_of_errors++] = "la temperatura debe ser un número real positivo o cero y no mayor a la temperatura crítica del material: 0 <= T/T_c <= 1";
                     }
             }
             else
             {
-                cod_err[n_err] = 7;
-                msj_err[n_err++] = "El argumento material no es opcional. Debe especificar el material a través del identificador `m'";
+                err_code[num_of_errors] = 7;
+                err_msg[num_of_errors++] = "El argumento material no es opcional. Debe especificar el material a través del identificador `m'";
             }
 
-            /* Impresión de mensajes de error e interrupción del programa si corresponde. */
-            for(i = 0; i < n_err; i++) error(cod_err[i], msj_err[i]);
-            if (n_err > 0)
+            /* Print error message and finish execution whether something is wrong */
+            for(i = 0; i < num_of_errors; i++) display_err_msg(err_code[i], err_msg[i]);
+            if (num_of_errors > 0)
             {
                 printf("\n\n");
                 exit(1);
             }
         }
-        /* Fin de bloque. Interpretación de comandos. */
+        /* End of block. Command interpreter */
 
-        /* Ajustes de los parámetros. */
-        if (escala > 0) temp *= *sc->temp_c;
-        max_err = pow(10, -decimales);
+        /* Setting parameters */
+        if (scale > 0) temp *= *sc->temp_c;
+        max_err = pow(10, - dec_digits);
 
-        /* Variables auxiliares para optimizar los cálculos. */
+        /* Auxiliary variables to optimize performance */
         temp_c = *sc->temp_c++;
         temp_c1 = *sc->temp_c++;
         temp_c2 = *sc->temp_c++;
         w = sc->w;
         gamma_a = sc->gamma_a;
-        cte_temp = pow(temp_c1/temp_c2, 2);
+        const_temp = pow(temp_c1/temp_c2, 2);
         q0 = temp_c1*temp_c2/(temp_c - temp_c1)/(temp_c - temp_c2);
         k = 1 - 4*gamma_a*gamma_a*q0;
 
         if ((k < 0) || (fabs(k - 1) < 1e-15))
         {
-            error(6, "verifique los parámetros del material superconductor en la biblioteca compuestos.txt");
+            display_err_msg(6, "verifique los parámetros del material superconductor en la biblioteca sc_materials.txt");
             exit(1);
         }
         k = sqrt(k);
 
 
-        /* Determinación de la menor temperatura ($T_0$) a partir de la cual las soluciones son válidas. */
-        beta = (1 + k)/(1 - k)*cte_temp; /* Simplificación de (-1 - k)/fabs(-1 + k)*cte_temp. */
+        /* Lowest temperature ($T_0$) is calculated, from which the solutions are valid */
+        beta = (1 + k)/(1 - k)*const_temp; /* Simplification of (-1 - k)/fabs(-1 + k)*const_temp. */
         m = beta*w;
-        temp_ajuste = temp;
-        h_bar = (temp_c - temp)/n_bar;
-        for (i = 0; i < n_bar; i++)
+        temp_tune = temp;
+        h_iter = (temp_c - temp)/n_iter;
+        for (i = 0; i < n_iter; i++)
         {
-            ctetemp_c1 = 1 - temp_ajuste/temp_c1;
-            ctetemp_c2 = 1 - temp_ajuste/temp_c2;
-            s = copysign(1, -ctetemp_c1);
-            aux = (1 - k)*fabs(ctetemp_c1); /* Simplificación de fabs((-1 + k)*ctetemp_c1). */
-            alpha = -(1 + k)*ctetemp_c2/aux; /* Simplificación de (-1 - k)*ctetemp_c2/aux. */
+            const_temp_c1 = 1 - temp_tune/temp_c1;
+            const_temp_c2 = 1 - temp_tune/temp_c2;
+            s = copysign(1, -const_temp_c1);
+            aux = (1 - k)*fabs(const_temp_c1); /* Simplification of fabs((-1 + k)*const_temp_c1). */
+            alpha = -(1 + k)*const_temp_c2/aux; /* Simplification of (-1 - k)*const_temp_c2/aux. */
             gamma = 2*gamma_a/aux;
-            if (bulk(s, alpha, beta, gamma, tildegamma, m, &f1oo, &f2oo, &lambda_eff) < 1) break;
-            temp_ajuste += h_bar;
+            if (bulk(s, alpha, beta, gamma, tildegamma, m, &f1_infty, &f2_infty, &lambda_eff) < 1) break;
+            temp_tune += h_iter;
         }
-        if (i == n_bar)
+        if (i == n_iter)
         {
-            error(6, "no se puede determinar la solución. Verifique que los valores de los parámetros sean correctos");
+            display_err_msg(6, "no se puede determinar la solución. Verifique que los valores de los parámetros sean correctos");
             exit(1);
         }
-        if (temp < temp_ajuste)
+        if (temp < temp_tune)
         {
-            if (ajuste > 0)
+            if (temp0_fix > 0)
             {
-                printf("\nReajuste de temperatura: T = %g K ---> T = %g K.\n", temp, temp_ajuste);
-                temp = temp_ajuste;
+                printf("\nReajuste de temperatura: T = %g K ---> T = %g K.\n", temp, temp_tune);
+                temp = temp_tune;
             }
-            else if (o_calc < 1)
+            else if (calc_opt < 1)
             {
-                printf("\nLos parámetros introducidos requieren una temperatura mínima de %g K, para que exista una solución válida.\n", temp_ajuste);
+                printf("\nLos parámetros introducidos requieren una temperatura mínima de %g K, para que exista una solución válida.\n", temp_tune);
                 exit(1);
             }
         }
@@ -393,88 +388,90 @@ GetUserName(usuario, &usuario_len);
         lh_mayor = lambda_eff;
         if (kappa_1 < 1) lh_mayor /= kappa_1;
 
-        /* Reserva de memoria. */
-        tam_sol = (ni + 2)*sizeof(double);
-        f1 = malloc(tam_sol);
-        f2 = malloc(tam_sol);
-        a = malloc(tam_sol);
-        /* Para barridos de temperaturas */
-        if (o_calc > 0)
-        {
-            n_res = 6;
-            tam_sol = n_bar*sizeof(double);
-            lambda_eff_var = malloc(tam_sol);
-            lambda_var = malloc(tam_sol);
-            lh1_var = malloc(tam_sol);
-            lh2_var = malloc(tam_sol);
-            la_var = malloc(tam_sol);
-            f1oo_var = malloc(tam_sol);
-            f2oo_var = malloc(tam_sol);
-            df10_var = malloc(tam_sol);
-            df20_var = malloc(tam_sol);
-            B0_var = malloc(tam_sol);
-            gamma_var = malloc(tam_sol);
-            otra_var = malloc(tam_sol);
-            es_invalido = malloc(n_bar*sizeof(bool));
-        }
-        else n_res = 3;
-        archivo = malloc(n_res*sizeof(*archivo));
-        id_arch = malloc(n_res*sizeof(*id_arch));
-        info_gr = malloc(n_res*sizeof(*info_gr));
-        formato = malloc(n_res*sizeof(*formato));
+        /* Allocating memory */
+        solution_size = (ni + 2)*sizeof(double);
+        f1 = malloc(solution_size);
+        f2 = malloc(solution_size);
+        a = malloc(solution_size);
 
-        ctetemp_c1 = 1 - temp/temp_c1;
-        ctetemp_c2 = 1 - temp/temp_c2;
-        s = copysign(1, -ctetemp_c1);
-        aux = (1 - k)*fabs(ctetemp_c1); /* Simplificación de fabs((-1 + k)*ctetemp_c1). */
-        alpha = -(1 + k)*ctetemp_c2/aux; /* Simplificación de (-1 - k)*ctetemp_c2/aux. */
+        /* Temperature iteration */
+        if (calc_opt > 0)
+        {
+            num_of_results = 6;
+            solution_size = n_iter*sizeof(double);
+            lambda_eff_var = malloc(solution_size);
+            lambda_var = malloc(solution_size);
+            lh1_var = malloc(solution_size);
+            lh2_var = malloc(solution_size);
+            la_var = malloc(solution_size);
+            f1_infty_var = malloc(solution_size);
+            f2_infty_var = malloc(solution_size);
+            df10_var = malloc(solution_size);
+            df20_var = malloc(solution_size);
+            B0_var = malloc(solution_size);
+            gamma_var = malloc(solution_size);
+            another_param = malloc(solution_size);
+            is_invalid = malloc(n_iter*sizeof(bool));
+        }
+        else num_of_results = 3;
+
+        file = malloc(num_of_results*sizeof(*file));
+        id_file = malloc(num_of_results*sizeof(*id_file));
+        p_info = malloc(num_of_results*sizeof(*p_info));
+        formato = malloc(num_of_results*sizeof(*formato));
+
+        const_temp_c1 = 1 - temp/temp_c1;
+        const_temp_c2 = 1 - temp/temp_c2;
+        s = copysign(1, -const_temp_c1);
+        aux = (1 - k)*fabs(const_temp_c1); /* Simplification of fabs((-1 + k)*const_temp_c1). */
+        alpha = -(1 + k)*const_temp_c2/aux; /* Simplification of (-1 - k)*const_temp_c2/aux. */
         gamma = 2*gamma_a/aux;
 
-        /* Definición del paso y el número de cálculos realizados. */
-        switch (o_calc)
+        /* Setting the step and the number of iterations required */
+        switch (calc_opt)
         {
         case 0:
-            n_bar = 1;
+            n_iter = 1;
             break;
         case 1:
-            h_bar = (temp_c - temp)/n_bar;
-            printf("T = %g, T0 = %g, h_bar = %g, n_bar = %d", temp, temp_ajuste, h_bar, n_bar);
-            temp0 = temp -= h_bar;
+            h_iter = (temp_c - temp)/n_iter;
+            printf("T = %g, T0 = %g, h_iter = %g, n_iter = %d", temp, temp_tune, h_iter, n_iter);
+            temp0 = temp -= h_iter;
             break;
         default:
-            h_bar = (3 - tildegamma)/n_bar;
-            tildegamma0 = tildegamma -= h_bar;
+            h_iter = (3 - tildegamma)/n_iter;
+            tildegamma0 = tildegamma -= h_iter;
             break;
         }
 
         n_val = 0;
 
-        if (o_calc > 0) printf("\nProgreso:\n0 %%\n");
+        if (calc_opt > 0) printf("\nProgreso:\n0 %%\n");
 
-        /** Resolución del problema. */
-        for (i = 0; i < n_bar; i++)
+        /** Obtaining the numerical solution */
+        for (i = 0; i < n_iter; i++)
         {
-            if (o_calc > 0)
+            if (calc_opt > 0)
             {
-                if ((prctje = 100*(i + 1)/n_bar) > prctje_ant)
+                if ((pct = 100*(i + 1)/n_iter) > pct_ant)
                 {
-                    printf("%d %%\n", prctje);
-                    prctje_ant = prctje;
+                    printf("%d %%\n", pct);
+                    pct_ant = pct;
                 }
-                if (o_calc < 2)
+                if (calc_opt < 2)
                 {
-                    temp += h_bar;
-                    ctetemp_c1 = 1 - temp/temp_c1;
-                    ctetemp_c2 = 1 - temp/temp_c2;
-                    s = copysign(1, -ctetemp_c1);
-                    aux = (1 - k)*fabs(ctetemp_c1);
-                    alpha = (-1 - k)*ctetemp_c2/aux;
+                    temp += h_iter;
+                    const_temp_c1 = 1 - temp/temp_c1;
+                    const_temp_c2 = 1 - temp/temp_c2;
+                    s = copysign(1, -const_temp_c1);
+                    aux = (1 - k)*fabs(const_temp_c1);
+                    alpha = (-1 - k)*const_temp_c2/aux;
                     gamma = 2*gamma_a/aux;
                 }
-                else if (o_calc < 3) tildegamma += h_bar;
+                else if (calc_opt < 3) tildegamma += h_iter;
             }
 
-            /* Parámetros constantes de la ecuación diferencial. */
+            /* Constant parameters of the coupled differential equations */
             coef[0] = s;
             coef[1] = alpha;
             coef[2] = beta;
@@ -484,35 +481,35 @@ GetUserName(usuario, &usuario_len);
             coef[6] = kappa_1;
             coef[7] = n;
 
-            /* Condiciones de frontera en el límite de la fase volumétrica. */
-            if (bulk(s, alpha, beta, gamma, tildegamma, m, &f1oo, &f2oo, &lambda_eff) > 0)
+            /* Boundary conditions in the bulk */
+            if (bulk(s, alpha, beta, gamma, tildegamma, m, &f1_infty, &f2_infty, &lambda_eff) > 0)
             {
-                if (o_calc > 0)
+                if (calc_opt > 0)
                 {
-                    es_invalido[i] = true;
+                    is_invalid[i] = true;
                     continue;
                 }
                 else
                 {
                     printf("\nT = %g\n", temp);
-                    error(6, "no se puede determinar la solución. Verifique que los valores de los parámetros sean correctos");
+                    display_err_msg(6, "no se puede determinar la solución. Verifique que los valores de los parámetros sean correctos");
                     exit(1);
                 }
             }
 
-            cf[0] = f1oo;
-            cf[1] = f2oo;
+            cf[0] = f1_infty;
+            cf[1] = f2_infty;
             cf[2] = 1;
 
-            /* Ajuste de $r_\infty$ y $h$ (punto fijo). */
+            /* Setting $r_\infty$ and $h$ (fixed point iteration). */
             for (j = 0; j < max_iter; j++)
             {
                 h = factor_r*lh_mayor/(ni + 1);
 
                 solve(coef, cf, ni, h, max_err, max_iter, f1, f2, a);
 
-                lh1 = bin_search(f1, ni, h, factor_lh*f1oo, true);
-                lh2 = bin_search(f2, ni, h, factor_lh*f2oo, true);
+                lh1 = bin_search(f1, ni, h, factor_lh*f1_infty, true);
+                lh2 = bin_search(f2, ni, h, factor_lh*f2_infty, true);
                 la = bin_search(a, ni, h, factor_lh, true);
 
                 if (lh1 > lh2)
@@ -534,32 +531,32 @@ GetUserName(usuario, &usuario_len);
 
             if (solve(coef, cf, ni, h, max_err, max_iter, f1, f2, a) > 0)
             {
-                if (o_calc > 0)
+                if (calc_opt > 0)
                 {
-                    es_invalido[i] = true;
+                    is_invalid[i] = true;
                     continue;
                 }
                 else
                 {
-                    error(6, "no se puede determinar la solución. Verifique que los valores de los parámetros sean correctos");
+                    display_err_msg(6, "no se puede determinar la solución. Verifique que los valores de los parámetros sean correctos");
                     exit(1);
                 }
             }
 
-            /* Cálculo de $B_0$ y $\lambda$. */
-            B = campo(a, n/kappa_1, ni, h);
+            /* Calculating magnetic field ($B_0$) and penetration depth ($\lambda$) */
+            B = magnetic_field(a, n/kappa_1, ni, h);
             lambda = bin_search(B, ni, h, *B/exp(1), false);
 
             aux = 12*h;
             df10 = (-25*f1[0] + 48*f1[1] - 36*f1[2] + 16*f1[3] - 3*f1[4])/aux;
             df20 = (-25*f2[0] + 48*f2[1] - 36*f2[2] + 16*f2[3] - 3*f2[4])/aux;
 
-            /* Cálculos de $L_{h_1}$ y $L_{h_2}$. */
-            lh1 = bin_search(f1, ni, h, factor_lh*f1oo, true);
-            lh2 = bin_search(f2, ni, h, factor_lh*f2oo, true);
+            /* Calculating healing lengths $L_{h_1}$ and $L_{h_2}$. */
+            lh1 = bin_search(f1, ni, h, factor_lh*f1_infty, true);
+            lh2 = bin_search(f2, ni, h, factor_lh*f2_infty, true);
             la = bin_search(a, ni, h, factor_lh, true);
 
-            if (o_calc > 0)
+            if (calc_opt > 0)
             {
                 lambda_eff_var[i] = lambda_eff;
                 lambda_var[i] = lambda;
@@ -567,256 +564,255 @@ GetUserName(usuario, &usuario_len);
                 lh2_var[i] = lh2;
                 la_var[i] = la;
                 B0_var[i] = *B;
-                f1oo_var[i] = f1oo;
-                f2oo_var[i] = f2oo;
+                f1_infty_var[i] = f1_infty;
+                f2_infty_var[i] = f2_infty;
                 df10_var[i] = df10;
                 df20_var[i] = df20;
                 gamma_var[i] = gamma;
-                otra_var[i] = lambda/lambda_eff*(1 - temp/temp_c);
+                another_param[i] = lambda/lambda_eff*(1 - temp/temp_c);
                 free(B);
             }
             n_val++;
         }
 
-        /** Directorio y archivos de salida. */
-        if (o_calc < 1)
+        /** Output directories and files */
+        if (calc_opt < 1)
         {
             dir_prefix = "Soluciones";
-            sufijo = "GL";
+            sufix = "GL";
         }
         else
         {
             dir_prefix = "Barridos";
-            if (o_calc < 2) sufijo = "temp";
-            else sufijo = "tildegamma";
+            if (calc_opt < 2) sufix = "temp";
+            else sufix = "tildegamma";
         }
 
-        /* Reserva de memoria para el los nombres de los archivos y el directorio. */
-        dir = malloc(strlen(dir_prefix) + strlen(sufijo) + 2);
-        nom_arch = malloc(strlen(material) + strlen(sufijo) + 2);
+        /* Allocating memory for directory and output file names */
+        dir = malloc(strlen(dir_prefix) + strlen(sufix) + 2);
+        file_name = malloc(strlen(material) + strlen(sufix) + 2);
 
-        /* Nombre base del directorio. */
+        /* Output directory name */
         strcpy(dir, dir_prefix);
-        strcat(strcat(dir, "_"), sufijo);
+        strcat(strcat(dir, "_"), sufix);
         if (stat(dir, &st) == -1) mkdir(dir, 0700);
 
-        /* Nombre base del archivo. */
-        strcpy(nom_arch, material);
-        strcpy(nom_arch, material);
-        strcat(strcat(nom_arch, "_"), sufijo);
+        /* Output file name */
+        strcpy(file_name, material);
+        strcpy(file_name, material);
+        strcat(strcat(file_name, "_"), sufix);
 
-        /* Formato de archivo de salida. */
+        /* Output file format */
         if (strcmp(ext, "dat") == 0)
         {
-            nom_soft_graf = "Grace";
-            char_coment = '#';
+            plot_soft_name = "Grace";
+            char_com = '#';
         }
         else
         {
-            nom_soft_graf = "Texto";
-            char_coment = '*';
+            plot_soft_name = "Texto";
+            char_com = '*';
         }
 
-        if (o_calc < 1)
+        if (calc_opt < 1)
         {
-            info_gr[0].n = 4;
-            info_gr[0].etq_x = "r/\\lambda_1(0)";
-            info_gr[0].etq_y = "f_1, f_2, B";
-            id_arch[0] = "_f1,f2,B";
-            info_gr[0].leyenda = malloc((info_gr[0].n - 1)*sizeof(*info_gr[0].leyenda));
-            info_gr[0].leyenda[0] = "f_1";
-            info_gr[0].leyenda[1] = "f_2";
-            info_gr[0].leyenda[2] = "B";
+            p_info[0].n = 4;
+            p_info[0].lbl_x = "r/\\lambda_1(0)";
+            p_info[0].lbl_y = "f_1, f_2, B";
+            id_file[0] = "_f1,f2,B";
+            p_info[0].key = malloc((p_info[0].n - 1)*sizeof(*p_info[0].key));
+            p_info[0].key[0] = "f_1";
+            p_info[0].key[1] = "f_2";
+            p_info[0].key[2] = "B";
 
-            info_gr[1].n = 2;
-            info_gr[1].etq_x = "r/\\lambda_1(0)";
-            info_gr[1].etq_y = "f_2/f_1";
-            id_arch[1] = "_f2_div_f1";
-            info_gr[1].leyenda = malloc((info_gr[1].n - 1)*sizeof(*info_gr[1].leyenda));
-            info_gr[1].leyenda[0] = "f_2/f_1";
+            p_info[1].n = 2;
+            p_info[1].lbl_x = "r/\\lambda_1(0)";
+            p_info[1].lbl_y = "f_2/f_1";
+            id_file[1] = "_f2_div_f1";
+            p_info[1].key = malloc((p_info[1].n - 1)*sizeof(*p_info[1].key));
+            p_info[1].key[0] = "f_2/f_1";
 
-            info_gr[2].n = 3;
-            info_gr[2].etq_x = "r/\\lambda_1(0)";
-            info_gr[2].etq_y = "b_1, b_2";
-            id_arch[2] = "_b1,b2";
-            info_gr[2].leyenda = malloc((info_gr[2].n - 1)*sizeof(*info_gr[2].leyenda));
-            info_gr[2].leyenda[0] = "b_1";
-            info_gr[2].leyenda[1] = "b_2";
+            p_info[2].n = 3;
+            p_info[2].lbl_x = "r/\\lambda_1(0)";
+            p_info[2].lbl_y = "b_1, b_2";
+            id_file[2] = "_b1,b2";
+            p_info[2].key = malloc((p_info[2].n - 1)*sizeof(*p_info[2].key));
+            p_info[2].key[0] = "b_1";
+            p_info[2].key[1] = "b_2";
         }
         else
         {
-            if (o_calc < 2)
+            if (calc_opt < 2)
             {
-                if (escala < 1) var_ind = "T";
+                if (scale < 1) var_ind = "T";
                 else var_ind = "T / T_c";
             }
             else var_ind = "\\tilde\\gamma";
 
-            info_gr[0].n = 4;
-            info_gr[0].etq_x = var_ind;
-            info_gr[0].etq_y = "\\lamda, L_{h_1}, L_{h_2}";
-            id_arch[0] = "_l,lh1,lh2";
-            info_gr[0].leyenda = malloc((info_gr[0].n - 1)*sizeof(*info_gr[0].leyenda));
-            info_gr[0].leyenda[0] = "\\lambda";
-            info_gr[0].leyenda[1] = "L_{h_1}";
-            info_gr[0].leyenda[2] = "L_{h_2}";
+            p_info[0].n = 4;
+            p_info[0].lbl_x = var_ind;
+            p_info[0].lbl_y = "\\lambda, L_{h_1}, L_{h_2}";
+            id_file[0] = "_l,lh1,lh2";
+            p_info[0].key = malloc((p_info[0].n - 1)*sizeof(*p_info[0].key));
+            p_info[0].key[0] = "\\lambda";
+            p_info[0].key[1] = "L_{h_1}";
+            p_info[0].key[2] = "L_{h_2}";
 
-            info_gr[1].n = 2;
-            info_gr[1].etq_x = var_ind;
-            info_gr[1].etq_y = "B_0";
-            id_arch[1] = "_B0";
-            info_gr[1].leyenda = malloc((info_gr[1].n - 1)*sizeof(*info_gr[1].leyenda));
-            info_gr[1].leyenda[0] = "B_0";
+            p_info[1].n = 2;
+            p_info[1].lbl_x = var_ind;
+            p_info[1].lbl_y = "B_0";
+            id_file[1] = "_B0";
+            p_info[1].key = malloc((p_info[1].n - 1)*sizeof(*p_info[1].key));
+            p_info[1].key[0] = "B_0";
 
-            info_gr[2].n = 2;
-            info_gr[2].etq_x = var_ind;
-            info_gr[2].etq_y = "L_{h_1}/L_{h_2}";
-            id_arch[2] = "_lh1_div_lh2";
-            info_gr[2].leyenda = malloc((info_gr[2].n - 1)*sizeof(*info_gr[2].leyenda));
-            info_gr[2].leyenda[0] = "L_{h_1}/L_{h_2}";
+            p_info[2].n = 2;
+            p_info[2].lbl_x = var_ind;
+            p_info[2].lbl_y = "L_{h_1}/L_{h_2}";
+            id_file[2] = "_lh1_div_lh2";
+            p_info[2].key = malloc((p_info[2].n - 1)*sizeof(*p_info[2].key));
+            p_info[2].key[0] = "L_{h_1}/L_{h_2}";
 
-            info_gr[3].n = 3;
-            info_gr[3].etq_x = var_ind;
-            info_gr[3].etq_y = "f_{1_\\infty}, f_{2_\\infty}";
-            id_arch[3] = "_f1oo,f2oo";
-            info_gr[3].leyenda = malloc((info_gr[3].n - 1)*sizeof(*info_gr[3].leyenda));
-            info_gr[3].leyenda[0] = "f_{1_\\infty}";
-            info_gr[3].leyenda[1] = "f_{2_\\infty}";
+            p_info[3].n = 3;
+            p_info[3].lbl_x = var_ind;
+            p_info[3].lbl_y = "f_{1_\\infty}, f_{2_\\infty}";
+            id_file[3] = "_f1_infty,f2_infty";
+            p_info[3].key = malloc((p_info[3].n - 1)*sizeof(*p_info[3].key));
+            p_info[3].key[0] = "f_{1_\\infty}";
+            p_info[3].key[1] = "f_{2_\\infty}";
 
-            info_gr[4].n = 2;
-            info_gr[4].etq_x = var_ind;
-            info_gr[4].etq_y = "\\eta = f_{2_\\infty}/f_{1_\\infty}";
-            id_arch[4] = "_f2oo_div_f1oo";
-            info_gr[4].leyenda = malloc((info_gr[4].n - 1)*sizeof(*info_gr[4].leyenda));
-            info_gr[4].leyenda[0] = "\\eta = f_{2_\\infty}/f_{1_\\infty}";
+            p_info[4].n = 2;
+            p_info[4].lbl_x = var_ind;
+            p_info[4].lbl_y = "\\eta = f_{2_\\infty}/f_{1_\\infty}";
+            id_file[4] = "_f2_infty_div_f1_infty";
+            p_info[4].key = malloc((p_info[4].n - 1)*sizeof(*p_info[4].key));
+            p_info[4].key[0] = "\\eta = f_{2_\\infty}/f_{1_\\infty}";
 
-            info_gr[5].n = 3;
-            info_gr[5].etq_x = var_ind;
-            info_gr[5].etq_y = "b_{1_0}, b_{2_0}";
-            id_arch[5] = "_b1,b2";
-            info_gr[5].leyenda = malloc((info_gr[5].n - 1)*sizeof(*info_gr[5].leyenda));
-            info_gr[5].leyenda[0] = "b_{1_0}";
-            info_gr[5].leyenda[1] = "b_{2_0}";
+            p_info[5].n = 3;
+            p_info[5].lbl_x = var_ind;
+            p_info[5].lbl_y = "b_{1_0}, b_{2_0}";
+            id_file[5] = "_b1,b2";
+            p_info[5].key = malloc((p_info[5].n - 1)*sizeof(*p_info[5].key));
+            p_info[5].key[0] = "b_{1_0}";
+            p_info[5].key[1] = "b_{2_0}";
         }
 
+        file_name_aux = malloc(num_of_results*sizeof*file_name_aux);
 
-        nom_arch_aux = malloc(n_res*sizeof*nom_arch_aux);
-
-        for (i = 0; i < n_res; i++)
+        for (i = 0; i < num_of_results; i++)
         {
-            if (i < n_res) formato[i] = formato_datos(info_gr[i].n, decimales);
-            nom_arch_aux[i] = malloc(strlen(nom_arch) + strlen(id_arch[i]) + 1);
-            strcat(strcpy(nom_arch_aux[i], nom_arch), id_arch[i]);
-            archivo[i] = crear_archivo(dir, nom_arch_aux[i], ext, char_coment, material, nom_soft_graf, usuario, o_calc, ni, n_bar, n_val);
+            if (i < num_of_results) formato[i] = data_format(p_info[i].n, dec_digits);
+            file_name_aux[i] = malloc(strlen(file_name) + strlen(id_file[i]) + 1);
+            strcat(strcpy(file_name_aux[i], file_name), id_file[i]);
+            file[i] = create_file(dir, file_name_aux[i], ext, char_com, material, plot_soft_name, usuario, calc_opt, ni, n_iter, n_val);
         }
 
-        if (o_calc < 1)
+        if (calc_opt < 1)
         {
-            df1 = deriv(f1, 1, ni, h);
-            df2 = deriv(f2, 1, ni, h);
+            df1 = num_diff(f1, 1, ni, h);
+            df2 = num_diff(f2, 1, ni, h);
 
-            fprintf(*archivo, "%c\n%c Parámetros de interés:\n", char_coment, char_coment);
-            fprintf(*archivo, formato_result("$f_{1_\\infty}$",decimales, char_coment), f1oo);
-            fprintf(*archivo, formato_result("$f_{2_\\infty}$",decimales, char_coment), f2oo);
-            fprintf(*archivo, formato_result("$L_{h_1}$",decimales, char_coment), lh1);
-            fprintf(*archivo, formato_result("$L_{h_2}$",decimales, char_coment), lh2);
-            fprintf(*archivo, formato_result("$\\lambda$",decimales, char_coment), lambda);
-            fprintf(*archivo, formato_result("$B_0$",decimales, char_coment), *B);
+            fprintf(*file, "%c\n%c Parámetros de interés:\n", char_com, char_com);
+            fprintf(*file, solution_data_format("$f_{1_\\infty}$", dec_digits, char_com), f1_infty);
+            fprintf(*file, solution_data_format("$f_{2_\\infty}$", dec_digits, char_com), f2_infty);
+            fprintf(*file, solution_data_format("$L_{h_1}$", dec_digits, char_com), lh1);
+            fprintf(*file, solution_data_format("$L_{h_2}$", dec_digits, char_com), lh2);
+            fprintf(*file, solution_data_format("$\\lambda$", dec_digits, char_com), lambda);
+            fprintf(*file, solution_data_format("$B_0$", dec_digits, char_com), *B);
 
             /* $r>0$. */
             for (j = 0; j < ni + 2; j++)
             {
-                fprintf(*archivo, *formato, j*h, f1[j], f2[j], B[j]);
+                fprintf(*file, *formato, j*h, f1[j], f2[j], B[j]);
 
-                if (isfinite(aux = f2[j]/f1[j])) fprintf(archivo[1], formato[1], j*h, f2[j]/f1[j]);
-                else fprintf(archivo[1], "\n%c Error de cálculo: valor indeterminado.", char_coment);
+                if (isfinite(aux = f2[j]/f1[j])) fprintf(file[1], formato[1], j*h, f2[j]/f1[j]);
+                else fprintf(file[1], "\n%c Error de cálculo: valor indeterminado.", char_com);
 
-                fprintf(archivo[2], formato[2], j*h, df1[j], df2[j]);
+                fprintf(file[2], formato[2], j*h, df1[j], df2[j]);
             }
         }
 
         else
         {
-            if (o_calc < 2) x0 = (temp0 + h_bar)/(aux = pow(temp_c, escala));
+            if (calc_opt < 2) x0 = (temp0 + h_iter)/(aux = pow(temp_c, scale));
             else
             {
                 aux = 1;
-                x0 = tildegamma0 + h_bar;
+                x0 = tildegamma0 + h_iter;
             }
 
-            for (j = 0; j < n_bar; j++)
+            for (j = 0; j < n_iter; j++)
             {
-                x = x0 + j*h_bar/aux;
+                x = x0 + j*h_iter/aux;
 
-                if (!es_invalido[j]) fprintf(*archivo, *formato, x, lambda_var[j], lh1_var[j], lh2_var[j]);
-                else fprintf(*archivo, "\n%c Error de cálculo: valor indeterminado.", char_coment);
+                if (!is_invalid[j]) fprintf(*file, *formato, x, lambda_var[j], lh1_var[j], lh2_var[j]);
+                else fprintf(*file, "\n%c Error de cálculo: valor indeterminado.", char_com);
 
-                if (!es_invalido[j]) fprintf(archivo[1], formato[1], x, B0_var[j]);
-                else fprintf(archivo[1], "\n%c Error de cálculo: valor indeterminado.", char_coment);
+                if (!is_invalid[j]) fprintf(file[1], formato[1], x, B0_var[j]);
+                else fprintf(file[1], "\n%c Error de cálculo: valor indeterminado.", char_com);
 
-                if (!es_invalido[j]) fprintf(archivo[2], formato[2], x, lh1_var[j]/lh2_var[j]);
-                else fprintf(archivo[2], "\n%c Error de cálculo: valor indeterminado.", char_coment);
+                if (!is_invalid[j]) fprintf(file[2], formato[2], x, lh1_var[j]/lh2_var[j]);
+                else fprintf(file[2], "\n%c Error de cálculo: valor indeterminado.", char_com);
 
-                if (!es_invalido[j]) fprintf(archivo[3], formato[3], x, f1oo_var[j], f2oo_var[j]);
-                else fprintf(archivo[4], "\n%c Error de cálculo: valor indeterminado.", char_coment);
+                if (!is_invalid[j]) fprintf(file[3], formato[3], x, f1_infty_var[j], f2_infty_var[j]);
+                else fprintf(file[4], "\n%c Error de cálculo: valor indeterminado.", char_com);
 
-                if (!es_invalido[j]) fprintf(archivo[4], formato[4], x, f2oo_var[j]/f1oo_var[j]);
-                else fprintf(archivo[5], "\n%c Error de cálculo: valor indeterminado.", char_coment);
+                if (!is_invalid[j]) fprintf(file[4], formato[4], x, f2_infty_var[j]/f1_infty_var[j]);
+                else fprintf(file[5], "\n%c Error de cálculo: valor indeterminado.", char_com);
 
-                if (!es_invalido[j]) fprintf(archivo[5], formato[5], x, df10_var[j], df20_var[j]);
-                else fprintf(archivo[5], "\n%c Error de cálculo: valor indeterminado.", char_coment);
+                if (!is_invalid[j]) fprintf(file[5], formato[5], x, df10_var[j], df20_var[j]);
+                else fprintf(file[5], "\n%c Error de cálculo: valor indeterminado.", char_com);
             }
         }
 
-        for (i = 0; i < n_res; i++)
+        for (i = 0; i < num_of_results; i++)
         {
-            /* Indicador de fin del archivo de datos. */
-            if (strcmp(ext, "dat") == 0) fprintf(archivo[i], "\n&");
-            fclose(archivo[i]);
+            /* End of file marker */
+            if (strcmp(ext, "dat") == 0) fprintf(file[i], "\n&");
+            fclose(file[i]);
 
-            /* Generación del gráfico. */
-            info_gr[i].titulo = malloc(50 + strlen(tipo(material)));
-            info_gr[i].subtitulo = malloc(255);
+            /* Generating plot */
+            p_info[i].title = malloc(50 + strlen(typo_convert(material)));
+            p_info[i].subtitle = malloc(255);
 
-            if (o_calc == 1)
+            if (calc_opt == 1)
             {
-                sprintf(info_gr[i].titulo, "Superconductor: %s", tipo(material));
-                sprintf(info_gr[i].subtitulo, "%s = %g,  %s = %g,  m = %g,  %s = %g,  n = %d", tipo("\\beta"), beta, tipo("\\tilde\\gamma"), tildegamma, m, tipo("\\kappa_1"), kappa_1, n);
+                sprintf(p_info[i].title, "Superconductor: %s", typo_convert(material));
+                sprintf(p_info[i].subtitle, "%s = %g,  %s = %g,  m = %g,  %s = %g,  n = %d", typo_convert("\\beta"), beta, typo_convert("\\tilde\\gamma"), tildegamma, m, typo_convert("\\kappa_1"), kappa_1, n);
             }
             else
             {
-                sprintf(info_gr[i].titulo, "Superconductor: %s @ T = %g K (%g%s)", tipo(material), temp, temp/temp_c, tipo("T_c"));
+                sprintf(p_info[i].title, "Superconductor: %s @ T = %g K (%g%s)", typo_convert(material), temp, temp/temp_c, typo_convert("T_c"));
 
-                if (o_calc < 1)
-                    sprintf(info_gr[i].subtitulo, "s = %d,  %s = %g,  %s = %g,  %s = %g,  %s = %g,  m = %g,  %s = %g,  n = %d", s, tipo("\\alpha"), alpha, tipo("\\beta"), beta, tipo("\\gamma"), gamma, tipo("\\tilde\\gamma"), tildegamma, m, tipo("\\kappa_1"), kappa_1, n);
+                if (calc_opt < 1)
+                    sprintf(p_info[i].subtitle, "s = %d,  %s = %g,  %s = %g,  %s = %g,  %s = %g,  m = %g,  %s = %g,  n = %d", s, typo_convert("\\alpha"), alpha, typo_convert("\\beta"), beta, typo_convert("\\gamma"), gamma, typo_convert("\\tilde\\gamma"), tildegamma, m, typo_convert("\\kappa_1"), kappa_1, n);
                 else
-                    sprintf(info_gr[i].subtitulo, "s = %d,  %s = %g,  %s = %g,  %s = %g,  m = %g,  %s = %g,  n = %d", s, tipo("\\alpha"), alpha, tipo("\\beta"), beta, tipo("\\gamma"), gamma, m, tipo("\\kappa_1"), kappa_1, n);
+                    sprintf(p_info[i].subtitle, "s = %d,  %s = %g,  %s = %g,  %s = %g,  m = %g,  %s = %g,  n = %d", s, typo_convert("\\alpha"), alpha, typo_convert("\\beta"), beta, typo_convert("\\gamma"), gamma, m, typo_convert("\\kappa_1"), kappa_1, n);
 
             }
             if (strcmp(ext, "dat") == 0)
             {
-                if (strcmp(info_gr[i].etq_y, "f_1, f_2, B") == 0) crear_grafico(info_gr[i], dir, nom_arch_aux[i], o_graf, o_res, o_tit, form_arch, ni);
-                else crear_grafico(info_gr[i], dir, nom_arch_aux[i], o_graf, o_res, o_tit, form_arch, o_calc > 0 ? n_val : ni);
+                if (strcmp(p_info[i].lbl_y, "f_1, f_2, B") == 0) create_plot(p_info[i], dir, file_name_aux[i], plot_soft_open, resolution_opt, show_title, plot_file_format, ni);
+                else create_plot(p_info[i], dir, file_name_aux[i], plot_soft_open, resolution_opt, show_title, plot_file_format, calc_opt > 0 ? n_val : ni);
             }
         }
 
-        if (o_calc > 0)
+        if (calc_opt > 0)
         {
             free(B0_var);
             free(lambda_eff_var);
             free(lambda_var);
             free(lh1_var);
             free(lh2_var);
-            free(f1oo_var);
-            free(f2oo_var);
+            free(f1_infty_var);
+            free(f2_infty_var);
             free(df10_var);
             free(df20_var);
             free(gamma_var);
-            free(otra_var);
-            free(es_invalido);
-            for (i = 1; i < n_res; i++)
-                free(nom_arch_aux[i]);
-            free(*nom_arch_aux);
+            free(another_param);
+            free(is_invalid);
+            for (i = 1; i < num_of_results; i++)
+                free(file_name_aux[i]);
+            free(*file_name_aux);
         }
         else
         {
@@ -826,11 +822,11 @@ GetUserName(usuario, &usuario_len);
             free(B);
         }
 
-        free(cod_err);
+        free(err_code);
         free(ident);
-        free(msj_err);
+        free(err_msg);
 
-        free(info_gr);
+        free(p_info);
         printf("\n¡Los cálculos fueron realizados con éxito!\n");
     }
     printf("\n");

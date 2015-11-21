@@ -1,30 +1,30 @@
 #ifndef FILERW_H_INCLUDED
 #define FILERW_H_INCLUDED
 
-typedef struct nodo nodo;
+typedef struct node node;
 typedef struct superconductor superconductor;
 
-struct nodo
+struct node
 {
     int lin, col;
-    char *msje;
-    nodo *sgte;
+    char *msg;
+    node *next;
 };
 
 struct superconductor
-/* Esta estructura almacena información sobre los parámetros de un material superconductor multibandas. */
+/* This struct stores information about the multi-band superconductor parameters. */
 {
-    int n_bandas;
+    int bands_number;
     float *temp_c, w, gamma_a;
 };
 
-/* Prototipos de funciones. */
-void agrega(nodo**, char*, int, int);
-FILE* crear_archivo(char*, char*, char*, char, char*, char*, char*, short, unsigned, unsigned, unsigned);
-void error(int, char*);
-char *formato_datos(short, short);
-char *formato_result(char*, short, char);
-nodo* nuevo_nodo(char *msje, int, int);
-superconductor *obtener_parametros(char*);
+/* Function prototypes */
+void add_node(node**, char*, int, int);
+FILE* create_file(char*, char*, char*, char, char*, char*, char*, short, unsigned, unsigned, unsigned);
+void display_err_msg(int, char*);
+char *data_format(short, short);
+char *solution_data_format(char*, short, char);
+node* new_node(char *msg, int, int);
+superconductor *get_sc_parameters(char*);
 
 #endif

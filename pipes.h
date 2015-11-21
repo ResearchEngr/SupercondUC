@@ -1,17 +1,17 @@
 #ifndef PIPES_H_INCLUDED
 #define PIPES_H_INCLUDED
 
-typedef struct info_grafico info_grafico;
+typedef struct plot_info plot_info;
 
-struct info_grafico
+struct plot_info
 {
-    char *titulo, *subtitulo, *etq_x, *etq_y, **leyenda;
+    char *title, *subtitle, *lbl_x, *lbl_y, **key;
     short n;
 };
 
-/* Prototipos de funciones. */
-void crear_grafico(info_grafico, char*, char*, short, short, short, char*, unsigned);
-void limites(char, short, char*, char*);
-char* tipo(char*);
+/* Function prototype */
+void create_plot(plot_info, char*, char*, short, short, short, char*, unsigned);
+void plot_bounds(char, short, char*, char*);
+char* typo_convert(char*);
 
 #endif
